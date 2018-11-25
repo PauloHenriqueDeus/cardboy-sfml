@@ -2,11 +2,11 @@
 
 
 
-Serial::Serial()
+Serial_::Serial_()
 {
 }
 
 
-Serial::~Serial()
+Serial_::~Serial_()
 {
 }

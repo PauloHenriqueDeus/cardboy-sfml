@@ -1,13 +1,13 @@
 #pragma once
 #include <string>
 #include <iostream>
-class Serial
+class Serial_
 {
 private:
 	int speedBPS;
 public:
-	Serial();
-	~Serial();
+	Serial_();
+	~Serial_();
 
 	void begin(int speedBPS) {
 		this->speedBPS = speedBPS;

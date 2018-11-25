@@ -6,6 +6,7 @@
 #include <time.h>
 #include "display.h"
 #include <string>
+#include "Serial.h"
 
 using namespace std;
 
@@ -32,6 +33,8 @@ private:
 
 		return false;
 	}
+
+	Serial_ Serial;
 
 public:
 
@@ -99,15 +102,31 @@ public:
 	const int buttonPin[4] = { 2, 3, 4, 5 }; //up, down, left, right
 	String endGameFeedback = "";
 
-	//pong
-	coord ball = coord(42, 24);
-	float players[2] = { 24 - 48 / 4 / 2, 24 - 48 / 4 / 2 };
+	typedef struct 
+	{
+		coord ball = coord(42, 24);
+		float players[2] = { 24 - 48 / 4 / 2, 24 - 48 / 4 / 2 };
 
-	coord ballDir = coord(1, 0);
+		coord ballDir = coord(1, 0);
+	} Pong;
 
-	bool right = true;
-	bool up = true;
+	typedef struct
+	{
+		int rows = 5;
+		int blocksPerRow = 5;
+		coord ball = coord(42, 24);
+		coord ballDir = coord(1, 0);
+		float ballSpeed = 20;
 
+		float player = 42;
+
+		int *blocks;
+		bool *blockLife;
+
+	} Breakout;
+
+	Pong* game_pong;
+	Breakout* game_breakout;
 	bool endedGame = false;
 
 	coord RotateVector(coord vector, float graus) {
@@ -120,18 +139,41 @@ public:
 	}
 
 	void InitPong() {
-		ball = coord(42, 12 + (rand() % 24));
+		free(game_pong);
+		game_pong = (Pong*)malloc(sizeof(Pong));
 
-		players[0] = 24 - 48 / 4 / 2;
-		players[1] = 24 - 48 / 4 / 2;
+		game_pong->ball = coord(42, 12 + (rand() % 24));
 
-		ballDir = RotateVector(coord(1, 0), 45);
+		game_pong->players[0] = 24 - 48 / 4 / 2;
+		game_pong->players[1] = 24 - 48 / 4 / 2;
 
-		right = round(rand() % 2);
-		up = round(rand() % 2);
+		game_pong->ballDir = RotateVector(coord(1, 0), rand() % 360);
 
 		endedGame = false;
 		current = PONG;
+	}
+
+	void InitBreakout() {
+		free(game_breakout);
+		game_breakout = (Breakout*)malloc(sizeof(Breakout));
+
+		game_breakout->rows = 5;
+		game_breakout->blocksPerRow = 5;
+
+		game_breakout->ball = coord(42, 30);
+		game_breakout->player = 42;
+
+		game_breakout->ballDir = RotateVector(coord(1, 0), -(rand() % 180));
+		game_breakout->ballSpeed = 20;
+
+		game_breakout->blocks = (int*)malloc((game_breakout->blocksPerRow+1)*game_breakout->rows * sizeof(int));
+		game_breakout->blockLife = (bool*)malloc((game_breakout->blocksPerRow + 1)*game_breakout->rows * sizeof(bool));
+		for (int i = 0; i < (game_breakout->blocksPerRow + 1)*game_breakout->rows; i++) {
+			game_breakout->blockLife[i] = true;
+		}
+
+		endedGame = false;
+		current = BREAKOUT;
 	}
 
 	void drawError()
@@ -156,7 +198,8 @@ public:
 
 
 		if (GetButtonPress("Any")) {
-			InitPong();
+			//InitPong();
+			InitBreakout();
 		}
 	}
 
@@ -182,7 +225,6 @@ public:
 		display.setCursor(15, 35);
 		display.println("BREAKOUT");
 
-
 	}
 
 	void drawEndScreen()
@@ -203,7 +245,8 @@ public:
 
 		if (GetButtonPress("Any")) {
 
-			InitPong();
+			//InitPong();
+			InitBreakout();
 		}
 	}
 
@@ -245,7 +288,7 @@ public:
 		}
 		case 4:
 		{
-
+			breakout();
 			break;
 		}
 		case 5:
@@ -335,63 +378,59 @@ public:
 	}
 
 	void pong() {
-		//ball.x += ((right?1:-1) * 20) * deltaTime;
-		//ball.y += ((up?1:-1) * 20) * deltaTime;
-		ball.x += (ballDir.x * 20) * deltaTime;
-		ball.y += (ballDir.y * 20) * deltaTime;
+
+		game_pong->ball.x += (game_pong->ballDir.x * 20) * deltaTime;
+		game_pong->ball.y += (game_pong->ballDir.y * 20) * deltaTime;
 
 		//movimentos  
 
 		//player
 		if (GetButtonPress("Up")) {
-			players[0] -= 15 * deltaTime;
+			game_pong->players[0] -= 15 * deltaTime;
 		}
 		else if (GetButtonPress("Down")) {
-			players[0] += 15 * deltaTime;
+			game_pong->players[0] += 15 * deltaTime;
 		}
 
 		//ai
-		char dir = ((ball.y - 6 - players[1]) > 0 ? 1 : -1);
-		players[1] += ((right) ? 15 : 10) * dir * deltaTime;
-		//char dir = ((ball.y - 6 - players[1]) > 0 ? 1 : -1);
-		//players[1] += 15 * dir * deltaTime;// min(15 * dir * deltaTime, (ball.y - 6 - players[1]));
-		//players[1] += (ball.y - 6 - players[1])/50; //sqrt(pow(ball.y - 6 - players[1], 2));
-		//players[1] = ball.y - 6;
+		char dir = ((game_pong->ball.y - 6 - game_pong->players[1]) > 0 ? 1 : -1);
+		game_pong->players[1] += 15 * dir * deltaTime;
+
 		//colisões
-		if (ball.x > 82) {
+		if (game_pong->ball.x > 82) {
 			//player 1 ponto
 			endGameFeedback = "You win!";
 			current = ENDGAME;
 			//right = false;
 		}
 
-		if (ball.x < 2) {
+		if (game_pong->ball.x < 2) {
 			//player 2 ponto
 			endGameFeedback = "You lose!";
 			current = ENDGAME;
 			//right = true;
 		}
 
-		if (ball.y > 46) {
-			ballDir = Bounce(ballDir, coord(0, -1), 10);
+		if (game_pong->ball.y > 46) {
+			game_pong->ballDir = Bounce(game_pong->ballDir, coord(0, -1), 10);
 		}
-		else if (ball.y < 2) {
-			ballDir = Bounce(ballDir, coord(0, 1), 10);
+		else if (game_pong->ball.y < 2) {
+			game_pong->ballDir = Bounce(game_pong->ballDir, coord(0, 1), 10);
 		}
 
 		//bola colide dentro da parede -> dot
 		//players
-		if (ball.x < 6) {
+		if (game_pong->ball.x < 6) {
 
-			if (ball.y > players[0] && ball.y < players[0] + 48 / 4) {
-				ballDir = Bounce(ballDir, coord(1, 0), 1 + ((players[0] - ball.y) / 12) * 2);
+			if (game_pong->ball.y > game_pong->players[0] && game_pong->ball.y < game_pong->players[0] + 48 / 4) {
+				game_pong->ballDir = Bounce(game_pong->ballDir, coord(1, 0), 1 + ((game_pong->players[0] - game_pong->ball.y) / 12) * 2);
 			}
 		}
 
-		if (ball.x > 84 - 6) {
+		if (game_pong->ball.x > 84 - 6) {
 
-			if (ball.y > players[1] && ball.y < players[1] + 48 / 4) {
-				ballDir = Bounce(ballDir, coord(-1, 0), -(1 + ((players[1] - ball.y) / 12) * 2));
+			if (game_pong->ball.y > game_pong->players[1] && game_pong->ball.y < game_pong->players[1] + 48 / 4) {
+				game_pong->ballDir = Bounce(game_pong->ballDir, coord(-1, 0), -(1 + ((game_pong->players[1] - game_pong->ball.y) / 12) * 2));
 			}
 		}
 
@@ -401,16 +440,92 @@ public:
 		display.drawFastVLine(42, 0, 48, 1);
 		display.drawRect(0, 0, 84, 48, 1);
 
-		display.drawFastVLine(4, players[0], 48 / 4, 1);
-		display.drawFastVLine(6, players[0], 48 / 4, 1);
+		display.drawFastVLine(4, game_pong->players[0], 48 / 4, 1);
+		display.drawFastVLine(6, game_pong->players[0], 48 / 4, 1);
 
-		display.drawFastVLine(84 - 4, players[1], 48 / 4, 1);
-		display.drawFastVLine(84 - 6, players[1], 48 / 4, 1);
+		display.drawFastVLine(84 - 4, game_pong->players[1], 48 / 4, 1);
+		display.drawFastVLine(84 - 6, game_pong->players[1], 48 / 4, 1);
 
-		display.fillCircle(ball.x, ball.y, 2, 1);
+		display.fillCircle(game_pong->ball.x, game_pong->ball.y, 2, 1);
 
 		//Serial.println(ball.x);
 		//Serial.println(ball.y);
+	}
+
+	void breakout() {
+
+		game_breakout->ball.x += (game_breakout->ballDir.x * game_breakout->ballSpeed) * deltaTime;
+		game_breakout->ball.y += (game_breakout->ballDir.y * game_breakout->ballSpeed) * deltaTime;
+
+		if (GetButtonPress("Up")) {
+			game_breakout->player -= 40 * deltaTime;
+		}
+		else if (GetButtonPress("Down")) {
+			game_breakout->player += 40 * deltaTime;
+		}
+
+		if (game_breakout->ball.x > game_breakout->player && game_breakout->ball.x < (game_breakout->player + 20)) {
+			if (game_breakout->ball.y > 48-5) {
+				const float f = (1 - (((game_breakout->ball.x - game_breakout->player) / 20) * 2));
+				game_breakout->ballDir = Bounce(game_breakout->ballDir, coord(0, -1), f);
+			}
+		}
+
+		bool win = true;
+		for (int i = 0; i < (game_breakout->blocksPerRow + 1)*game_breakout->rows; i++) {
+			if (game_breakout->blockLife[i] == true) {
+				win = false;
+				break;
+			}
+		}
+
+		if (win) {
+			endGameFeedback = "You Win!";
+			current = ENDGAME;
+		}
+
+		if (game_breakout->ball.y > 48) {
+			endGameFeedback = "You Lose!";
+			current = ENDGAME;
+
+			//game_breakout->ballDir = Bounce(game_breakout->ballDir, coord(0, -1), 10);
+		}
+		else if (game_breakout->ball.y < 2) {
+			game_breakout->ballDir = Bounce(game_breakout->ballDir, coord(0, 1), 10);
+		}
+
+		if (game_breakout->ball.x < 2) {
+			game_breakout->ballDir = Bounce(game_breakout->ballDir, coord(1, 0), 10);
+		}
+		else if (game_breakout->ball.x > 84 - 2) {
+			game_breakout->ballDir = Bounce(game_breakout->ballDir, coord(-1, 0), 10);
+		}
+
+		const int blockSize = 84 / game_breakout->blocksPerRow;
+
+		for (int i = 0; i < (game_breakout->blocksPerRow + 1)*game_breakout->rows; i++) {
+			if (game_breakout->blockLife[i] == true) {
+				const int j = i%(game_breakout->blocksPerRow+1);
+				const int y = (i/ (game_breakout->blocksPerRow + 1)*5);
+				const int deltaX = j + (-(y % 2) * blockSize / 2);
+				const int x = (j*blockSize + deltaX);
+
+				if (game_breakout->ball.x > x && game_breakout->ball.x < (x + blockSize)) {
+					if (game_breakout->ball.y < y + 1 && game_breakout->ball.y > y - 1) {
+						const float f = -(1-(((game_breakout->ball.x - x) / blockSize)*2));
+						game_breakout->ballDir = Bounce(game_breakout->ballDir, coord(0, (game_breakout->ballDir.y>0)?-1:1),f);
+						game_breakout->blockLife[i] = false;
+						game_breakout->ballSpeed = 8.0f + max(game_breakout->ballSpeed,((game_breakout->blocksPerRow + 1)-j) * 2.0f);
+					}
+				}
+
+				display.drawFastHLine(x, y, blockSize, 1);
+			}
+		}
+
+		display.fillCircle(game_breakout->ball.x, game_breakout->ball.y, 2, 1);
+		display.drawFastHLine(game_breakout->player, 48 - 5, 20, 1);
+
 	}
 
 	//TODO: Essa função não entra, pois foi substituida

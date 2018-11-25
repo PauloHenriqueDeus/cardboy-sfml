@@ -95,6 +95,14 @@ public:
 		window->draw(rectangle);
 	}
 
+	void drawFastHLine(int x, int y, int width, int color) {
+		sf::RectangleShape line(sf::Vector2f(width, 1));
+		line.setPosition(x, y);
+
+		line.setOrigin(0.5f, 0.5f);
+		window->draw(line);
+	}
+
 	void drawFastVLine(int x, int y, int height, int color) {
 		sf::RectangleShape line(sf::Vector2f(1, height));
 		line.setPosition(x, y);
