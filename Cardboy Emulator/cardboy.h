@@ -163,7 +163,7 @@ public:
 		game_breakout->ball = coord(42, 30);
 		game_breakout->player = 42;
 
-		game_breakout->ballDir = RotateVector(coord(1, 0), -(rand() % 180));
+		game_breakout->ballDir = RotateVector(coord(1, 0), -(rand() % 90 + 45));
 		game_breakout->ballSpeed = 20;
 
 		game_breakout->blocks = (int*)malloc((game_breakout->blocksPerRow+1)*game_breakout->rows * sizeof(int));
