@@ -99,8 +99,22 @@ public:
 	float lastTime = 0;
 	float deltaTime = 0;
 
+	const int buzzerPin = 6;
 	const int buttonPin[4] = { 2, 3, 4, 5 }; //up, down, left, right
 	String endGameFeedback = "";
+
+	//main menu
+	bool pressClear = false;
+	int sel = 0;
+
+	struct Buzz {
+		unsigned int note, duration;
+
+		Buzz(unsigned int _note, unsigned int _duration) {
+			note = _note;
+			duration = _duration;
+		}
+	};
 
 	typedef struct 
 	{
@@ -108,6 +122,12 @@ public:
 		float players[2] = { 24 - 48 / 4 / 2, 24 - 48 / 4 / 2 };
 
 		coord ballDir = coord(1, 0);
+
+		Buzz bounce;// { 523, 500 };
+
+		Buzz win;// { 880, 1000 };
+		Buzz lose;// { 261, 1000 };
+
 	} Pong;
 
 	typedef struct
@@ -122,6 +142,11 @@ public:
 
 		int *blocks;
 		bool *blockLife;
+
+		Buzz bounce;// { 523, 500 };
+		Buzz hitBlock;// { 659	, 500 };
+		Buzz win;// { 880, 1000 };
+		Buzz lose;// { 261, 1000 };
 
 	} Breakout;
 
@@ -149,6 +174,11 @@ public:
 
 		game_pong->ballDir = RotateVector(coord(1, 0), rand() % 360);
 
+		game_pong->bounce = Buzz(523, 500);
+
+		game_pong->win = Buzz(880, 1000);
+		game_pong->lose = Buzz(261, 1000);
+
 		endedGame = false;
 		current = PONG;
 	}
@@ -172,6 +202,11 @@ public:
 			game_breakout->blockLife[i] = true;
 		}
 
+		game_breakout->bounce = Buzz(523, 500);
+		game_breakout->hitBlock = Buzz(659, 500);
+		game_breakout->win = Buzz(880, 1000);
+		game_breakout->lose = Buzz(261, 1000);
+
 		endedGame = false;
 		current = BREAKOUT;
 	}
@@ -194,12 +229,10 @@ public:
 
 		display.setTextSize(1);
 		display.setCursor(0, 35);
-		display.println("*press start*");
-
+		display.println("*press any*");
 
 		if (GetButtonPress("Any")) {
-			//InitPong();
-			InitBreakout();
+			current = MAIN_MENU;
 		}
 	}
 
@@ -225,6 +258,36 @@ public:
 		display.setCursor(15, 35);
 		display.println("BREAKOUT");
 
+		display.fillCircle(10, 18 + 10 * sel, 2, BLACK);
+
+		if (GetButtonPress("Down"))
+		{
+			if (pressClear)
+			{
+				sel = (sel + 1) % 3;
+				Serial.println(std::to_string(sel));
+				pressClear = false;
+			}
+		}
+		else if (GetButtonPress("Up"))
+		{
+			if (sel == 0) // snake
+			{
+				current = SNAKE;
+			}
+			else if (sel == 1) // pong
+			{
+				InitPong();
+			}
+			else // breakout
+			{
+				InitBreakout();
+			}
+		}
+		else
+		{
+			pressClear = true;
+		}
 	}
 
 	void drawEndScreen()
@@ -238,15 +301,22 @@ public:
 			display.setCursor(0, 35);
 			display.println("*press start*");
 		}
-		else {
+		else {		
+			display.display();
 			delay(3000);
 			endedGame = true;
 		}
 
 		if (GetButtonPress("Any")) {
 
-			//InitPong();
-			InitBreakout();
+			if (sel == 1) // pong
+			{
+				InitPong();
+			}
+			else if (sel == 2) // breakout
+			{
+				InitBreakout();
+			}
 		}
 	}
 
@@ -278,7 +348,7 @@ public:
 		}
 		case 2:
 		{
-
+			snake();
 			break;
 		}
 		case 3:
@@ -379,8 +449,8 @@ public:
 
 	void pong() {
 
-		game_pong->ball.x += (game_pong->ballDir.x * 20) * deltaTime;
-		game_pong->ball.y += (game_pong->ballDir.y * 20) * deltaTime;
+		game_pong->ball.x += (game_pong->ballDir.x * 30) * deltaTime;
+		game_pong->ball.y += (game_pong->ballDir.y * 30) * deltaTime;
 
 		//movimentos  
 
@@ -401,6 +471,7 @@ public:
 			//player 1 ponto
 			endGameFeedback = "You win!";
 			current = ENDGAME;
+			buzz(game_pong->win);
 			//right = false;
 		}
 
@@ -408,14 +479,17 @@ public:
 			//player 2 ponto
 			endGameFeedback = "You lose!";
 			current = ENDGAME;
+			buzz(game_pong->lose);
 			//right = true;
 		}
 
-		if (game_pong->ball.y > 46) {
+		if (game_pong->ball.y > 46 && game_pong->ballDir.y > 0) {
 			game_pong->ballDir = Bounce(game_pong->ballDir, coord(0, -1), 10);
+			buzz(game_pong->bounce);
 		}
-		else if (game_pong->ball.y < 2) {
+		else if (game_pong->ball.y < 2 && game_pong->ballDir.y < 0) {
 			game_pong->ballDir = Bounce(game_pong->ballDir, coord(0, 1), 10);
+			buzz(game_pong->bounce);
 		}
 
 		//bola colide dentro da parede -> dot
@@ -424,6 +498,7 @@ public:
 
 			if (game_pong->ball.y > game_pong->players[0] && game_pong->ball.y < game_pong->players[0] + 48 / 4) {
 				game_pong->ballDir = Bounce(game_pong->ballDir, coord(1, 0), 1 + ((game_pong->players[0] - game_pong->ball.y) / 12) * 2);
+				buzz(game_pong->bounce);
 			}
 		}
 
@@ -431,6 +506,7 @@ public:
 
 			if (game_pong->ball.y > game_pong->players[1] && game_pong->ball.y < game_pong->players[1] + 48 / 4) {
 				game_pong->ballDir = Bounce(game_pong->ballDir, coord(-1, 0), -(1 + ((game_pong->players[1] - game_pong->ball.y) / 12) * 2));
+				buzz(game_pong->bounce);
 			}
 		}
 
@@ -482,23 +558,28 @@ public:
 		if (win) {
 			endGameFeedback = "You Win!";
 			current = ENDGAME;
+			buzz(game_breakout->win);
 		}
 
 		if (game_breakout->ball.y > 48) {
 			endGameFeedback = "You Lose!";
 			current = ENDGAME;
+			buzz(game_breakout->lose);
 
 			//game_breakout->ballDir = Bounce(game_breakout->ballDir, coord(0, -1), 10);
 		}
-		else if (game_breakout->ball.y < 2) {
+		else if (game_breakout->ball.y < 2 && game_breakout->ballDir.y < 0) {
 			game_breakout->ballDir = Bounce(game_breakout->ballDir, coord(0, 1), 10);
+			buzz(game_breakout->bounce);
 		}
 
-		if (game_breakout->ball.x < 2) {
+		if (game_breakout->ball.x < 2 && game_breakout->ballDir.x < 0) {
 			game_breakout->ballDir = Bounce(game_breakout->ballDir, coord(1, 0), 10);
+			buzz(game_breakout->bounce);
 		}
-		else if (game_breakout->ball.x > 84 - 2) {
+		else if (game_breakout->ball.x > 84 - 2 && game_breakout->ballDir.x > 0) {
 			game_breakout->ballDir = Bounce(game_breakout->ballDir, coord(-1, 0), 10);
+			buzz(game_breakout->bounce);
 		}
 
 		const int blockSize = 84 / game_breakout->blocksPerRow;
@@ -516,6 +597,7 @@ public:
 						game_breakout->ballDir = Bounce(game_breakout->ballDir, coord(0, (game_breakout->ballDir.y>0)?-1:1),f);
 						game_breakout->blockLife[i] = false;
 						game_breakout->ballSpeed = 8.0f + max(game_breakout->ballSpeed,((game_breakout->blocksPerRow + 1)-j) * 2.0f);
+						buzz(game_breakout->hitBlock);
 					}
 				}
 
@@ -526,6 +608,24 @@ public:
 		display.fillCircle(game_breakout->ball.x, game_breakout->ball.y, 2, 1);
 		display.drawFastHLine(game_breakout->player, 48 - 5, 20, 1);
 
+	}
+
+	void snake() {
+		display.setTextSize(1);
+		display.setCursor(0, 6);
+		display.println("Coming soon");
+
+		display.display();
+		delay(3000);
+
+		pressClear = false;
+		sel = 0;
+		current = MAIN_MENU;
+	}
+
+	void buzz(Buzz b) {
+		//tone(buzzerPin, b.note, b.duration);
+		Serial.println("\a" +  to_string(b.note) + " " + to_string(b.duration));
 	}
 
 	//TODO: Essa função não entra, pois foi substituida

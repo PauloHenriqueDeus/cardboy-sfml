@@ -8,7 +8,7 @@ sf::Clock clock_;
 
 void wait(int time) {
 	int t = clock_.getElapsedTime().asMilliseconds();
-	while (clock_.getElapsedTime().asMilliseconds() - t >= time) {
+	while (clock_.getElapsedTime().asMilliseconds() - t < time) {
 		;
 	}
 }

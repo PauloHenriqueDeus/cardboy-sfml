@@ -1,8 +1,8 @@
 #include <string>
 #include <SFML\Graphics.hpp>
 
-#define BLACK 0
-#define WHITE 1
+#define BLACK 1
+#define WHITE 0
 
 #pragma once
 class Display
@@ -50,7 +50,7 @@ public:
 	void println(std::string text) {
 		sf::Text txt(text, font, 5 * textSize);
 		txt.setPosition(textPos);
-		txt.setFillColor(sf::Color::White);
+		txt.setFillColor(textColor);
 		window->draw(txt);
 	}
 
